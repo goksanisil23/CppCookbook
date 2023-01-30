@@ -84,3 +84,69 @@ struct alignas(8) MyStruct
 cout << sizeof(MyStruct); // (1+7)+(4+4)+(4+4) = 16
 cout << alignof(MyStruct); // 8 due to alignas
 ```
+
+In order to control the padding behavior of the compiler (which would come at a performance cost due to increased cache misses), once could use `#pragma pack(n)`. 
+```c++
+#pragma pack(1)
+struct MyStruct
+{
+    char x;
+    char y[4];
+    float z;
+};
+cout << sizeof(MyStruct); // 1 + 4 + 4 = 9
+cout << alignof(MyStruct); // 1
+```
+
+### Scoped Enumerators
+- Prefer scoped enumerators in general to unscoped enumerators. They avoid name clashes and ambigous implicit conversions to int.
+```c++
+enum MyEnum{ OK, NOK};
+int var = MyEnum::OK; // unscoped Enum converts to int
+enum class MyEnumScoped{ OK, NOK};
+int var2  = MyEnumScoped::OK; // ERROR, needs static_cast<int>()
+```
+
+### Inlined namespaces
+A member of an inline namespace is treated as a member of the surrounding namespace. This is useful for:
+- Symbol versioning for different versions of the library 
+```c++
+namespace mylib
+{
+    #ifdef VERSION_2
+    inline namespace version_2
+    {
+        void myfunc(){cout << "2\n";};
+    }
+    #else
+    inline namespace version_1
+    {
+        void myfunc(){cout << "1\n";};
+    }    
+    #endif
+}
+// ...
+mylib::myfunc(); // works for both version_1 and version_2
+```
+Depending on build flags `VERSION_1` and `VERSION_2`, inlined namespace allows us to see that version info in the library symbol. Note that the user do not need to change usage of API call.
+```bash
+nm mylib | grep myfunc # will show version_2 or version_1 in symbol name
+```
+- Finer grained access to features within namespaces.
+```c++
+namespace top
+{
+    inline namespace mid
+    {
+        inline namespace bot
+        {
+            void myfunc(){std::cout << "myfunc\n";}
+        }
+    }
+}
+// ...
+top::mid::bot::myfunc(); // finer grained
+// OR
+using top;
+myfunc(); // convenient
+```
