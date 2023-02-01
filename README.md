@@ -150,3 +150,70 @@ top::mid::bot::myfunc(); // finer grained
 using top;
 myfunc(); // convenient
 ```
+
+### Copy & Move semantics
+- Rule of 5: If *any* of class special member functions are explicitly defined, either explicitly define or default all of them.
+
+```c++
+class Example
+{
+public:
+    Example(): dataPtr_{nullptr}, var_(0) {}
+
+    Example(const Example& other) // Copy Constructor
+    {
+        dataPtr_ = new int(*(other.dataPtr_)); // Deep copy
+        var_ = other.var_;
+    }
+
+    Example& operator= (const Example& other) // Copy Assign. Op.
+    {
+        if(this != &other)
+        {
+            delete dataPtr_;
+            dataPtr_ = new int(*(other.dataPtr_)); // Deep Copy
+            var_ = other.var_;
+        }
+        return *this;
+    }
+
+    Example(Example&& other) noexcept // Move Constructor
+    {
+        dataPtr_ = other.dataPtr_; // transfer ownership
+        var_ = other.var_;
+        other.dataPtr_ = nullptr; // release the other
+        other.var_ = 0.0;
+    }
+
+    Example& operator= (Example&& other) // Move Assign. Op.
+    {
+        if(this != &other)
+        {
+            delete dataPtr_;
+            dataPtr_ = other.dataPtr_; 
+            var_ = other.var_;
+            other.dataPtr_ = nullptr; // release the other
+            other.var_ = 0.0;
+        }
+        return *this;
+    }
+
+    ~Example()
+    {
+        delete dataPtr_;
+    }
+
+private:
+    int* dataPtr_;
+    double var_;
+}; 
+```
+
+If we are providing both move assignment and move constructor for the class, we can avoid redundant code by having move constructor call move assignment:
+```c++
+    Example(Example&& other) noexcept // Move Constructor
+    {
+        *this = std::move(other);
+    }
+```
+Here `std::move` converts lvalue `other` to an rvalue.
