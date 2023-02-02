@@ -3,6 +3,51 @@ Cpp Cookbook / Playground for the concept's I like to remember.
 
 ## Core Features
 
+### l-value & r-value
+- `l-value`: expression whose address can be taken.
+```c++
+int a;
+a = 1; // a is an l-value
+```
+```c++
+int x; // global
+int& getRef() {return x;}
+getRef() = 4;
+```
+Here `getRef` returns a reference to a value that is stored in permenant location, hence has an address.
+
+- `r-value`: expression that results in a temporary object
+```c++
+int x; // global
+int getVal() {return x;}
+int val = getVal();
+```
+`getVal()` is an r-value, value being returned is not a reference to x, just a temporary value.
+```c++
+std::string getName() {return "Jordan";}
+std::string name = getName();
+```
+Here `getName()` returns a string constructed inside the function, hence temporary object. getName() is an r-value. 
+
+#### r-value references
+Allows to bind a reference to an r-value but NOT to an l-value (so that we can differentiate between the 2).
+```c++
+std::string&& name = getName(); // name is r-value ref.
+std::string& name2 = getName(); // ERROR, name2 is l-value ref.
+```
+To *cast* an l-value to an r-value, `std::move()` is used, to tell the compiler that we will only temporarily need that moved object, and not anymore further down the line.
+
+> **Note**
+> Do not return r-value ref. from a function using std::move. When returning a local function variable, compilers after C++11 will use RVO to automatically move them. So use
+```c++
+std::vector<int> GenVec(){
+    std::vector<int> vec{1,2,3};
+    return vec;
+}
+// RVO
+```
+
+
 ### `auto` Usage
 
 - Helps avoiding faulty implicit conversions:
@@ -151,7 +196,7 @@ using top;
 myfunc(); // convenient
 ```
 
-### Copy & Move semantics
+### Rule of 5
 - Rule of 5: If *any* of class special member functions are explicitly defined, either explicitly define or default all of them.
 
 ```c++
@@ -217,3 +262,64 @@ If we are providing both move assignment and move constructor for the class, we 
     }
 ```
 Here `std::move` converts lvalue `other` to an rvalue.
+
+### Variadic Function Templates
+Allows to define non-fixed number of input arguments to functions. The compiler recursively generates deterministic versions in compile time.
+```c++
+template <typename T>
+T add(T value)
+{
+    return value;
+}
+
+template <typename T, typename ... Ts>
+T add (T head, Ts ... rest)
+{
+    std::cout << __PRETTY_FUNCTION__ << std::endl;
+    //std::cout << sizeof...(rest) << std::endl;
+    return head + add(rest...);
+}
+// ...
+auto r1 = add(1,2,3,4);
+auto r2 = add("hey","teacher"," ", "leave'em");
+```
+
+Prints out:
+```c++
+T add(T, Ts...) [T = unsigned int, Ts = <double, float, int, long>]
+T add(T, Ts...) [T = double, Ts = <float, int, long>]
+T add(T, Ts...) [T = float, Ts = <int, long>]
+T add(T, Ts...) [T = int, Ts = <long>]
+7
+T add(T, Ts...) [T = std::__cxx11::basic_string<char>, Ts = <std::__cxx11::basic_string<char>, std::__cxx11::basic_string<char>>]
+T add(T, Ts...) [T = std::__cxx11::basic_string<char>, Ts = <std::__cxx11::basic_string<char>>]
+aa bbb
+```
+Note that if we change the return type of variadic template function to auto, return type can be inferred from the return expression, and in this case since we have double along the additions, it will return a double:
+```c++
+template <typename T, typename ... Ts>
+auto add (T head, Ts ... rest)
+{...}
+```
+Prints out:
+```c++
+auto add(T, Ts...) [T = unsigned int, Ts = <double, float, int, long>]
+auto add(T, Ts...) [T = double, Ts = <float, int, long>]
+auto add(T, Ts...) [T = float, Ts = <int, long>]
+auto add(T, Ts...) [T = int, Ts = <long>]
+7.2
+```
+
+### Fold expressions
+Fold expressions are related to variadic arguments of templates. It enables compiler to apply the same binary operation `(+,-,>,*,/=,...)` to all arguments of parameter pack. The expression must to be surrounded by parenthesis `(...)`
+- Note that associtivity matters when folding:
+```c++
+template <typename ... Ts>
+auto minus(Ts const& ... vals)
+{
+    return (values - ...);
+    // OR
+    return (... - values);
+}
+```
+The example above will give different results for `minus(1,2,3)`, depending on left or right associtivity.
