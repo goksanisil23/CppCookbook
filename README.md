@@ -347,7 +347,7 @@ auto minus(Ts const& ... vals)
 The example above will give different results for `minus(1,2,3)`, depending on left or right associtivity.
 
 ### typename & value_type
-Apart from defining templated funcs/classes, typename keyword is used to access nested and dependent types related to the templated class.
+- Apart from defining templated funcs/classes, typename keyword is used to access nested and dependent types related to the templated class.
  ```c++
 class MyClass
 {
@@ -365,6 +365,20 @@ void func(const T& obj)
     typename T::MyStruct value2 = obj.val; // OK
 }
 ```
+- `value_type` is mainly used to retrieve the type of data stored in the containers. It's useful when we want to define a function that involves templated containers.
+```c++
+template <typename Cont>
+typename Cont::value_type sumElements(const Cont& cont){
+    typename Cont::value_type sum = typename Cont::value_type();
+    for(const auto& val: cont)
+        sum += val;
+    return sum;
+}
+// ...
+auto sumList = sumElements(std::list{1,2,3,4}); // 10
+auto sumQueue = sumElements(std::dequeue{1.1,2.2,3.3,4.5}); // 11.1
+```
+Note that `typename Cont::value_type()` is calling the default constructor of the type held in container.
 
 ### enable_if & SFINAE
 - *SFINAE* stands for 'Substitution Failure Is Not An Error'. It means if the compiler fails to substitute a certain type during specialization, it will not cause a compile error **if another successful substitution is found.**
@@ -382,7 +396,8 @@ auto neg = negate(42);
 ```
 For the templated `negate`, compiler considers the substitution `int::value_type negate(const int& t);`, and sees that its invalid since `int` has no `value_type`. However since 1st version of `negate` fits into `negate(42)` usage, we get no error.
 
-- `enable_if` is mainly used to restrict templates to types that have certain properties. Without enable_if, catch-all property of templates might lead to undesired behavior:
+- `enable_if` is mainly used to restrict templates to types that have certain properties. 
+Without enable_if, catch-all property of templates might lead to undesired behavior:
 ```c++
 template <typename T>
 class vector {
@@ -396,4 +411,14 @@ public:
 vector<int> vec(4,8);
 // calls 2nd version since 1st constructor would need a cast from int(4) to size_t
 // whereas 2nd one fits perfectly with no type conversion.
+```
+`enable_if` returns the type `T` if condition it's provided with returns true.
+```c++
+template<typename T, typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
+T add_one(T value) {
+    return value + 1;
+}
+// ...
+add_one(1); // OK
+add_one(5.0); // error since 5.0 is not integral type
 ```
