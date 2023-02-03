@@ -1,8 +1,6 @@
 # CppCookbook
 Cpp Cookbook / Playground for the concept's I like to remember.
 
-## Core Features
-
 ### l-value & r-value
 - `l-value`: expression whose address can be taken.
 ```c++
@@ -35,7 +33,31 @@ Allows to bind a reference to an r-value but NOT to an l-value (so that we can d
 std::string&& name = getName(); // name is r-value ref.
 std::string& name2 = getName(); // ERROR, name2 is l-value ref.
 ```
-To *cast* an l-value to an r-value, `std::move()` is used, to tell the compiler that we will only temporarily need that moved object, and not anymore further down the line.
+
+#### Why use r-values?
+r-value references expresses intent that the object being passed is **disposable**. So when it is being passes as r-value ref, it means passer no longer cares about it. They're used to improve performance and take ownership.
+```c++
+void func(const int& lref);
+void func(const int&& rref);
+int x{11};
+func(x); // calls 1st
+func(5); // calls 2nd
+int &&ref{ 5 };
+func(ref); // calls 1st !!
+func(std::move(ref)); // calls 2nd
+```
+
+> **Warning**
+> A named r-value is an l-value, since all named objects are l-values. Only temporary/anonymous objects are r-values.
+
+```c++
+void func(std::vector<int>&& vec) // vec is r-value ref
+{ //but here vec is l-value since it designates the name of object
+  // && in func argument only implies its ok to dispose of object
+  std::vector newVec = std::move(vec);
+  // explicity use move, o/w it gets copied.
+}
+```
 
 > **Note**
 > Do not return r-value ref. from a function using std::move. When returning a local function variable, compilers after C++11 will use RVO to automatically move them. So use
