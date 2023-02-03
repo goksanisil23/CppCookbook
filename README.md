@@ -422,3 +422,13 @@ T add_one(T value) {
 add_one(1); // OK
 add_one(5.0); // error since 5.0 is not integral type
 ```
+We can create an alias to make this usage less verbose:
+```c++
+template <typename TCondToTest, typename T = void>
+using EnableIf = typename std::enable_if<TCondToTest::value, T>::type;
+
+template<typename T, typename = EnableIf<std::is_integral<T>, T>> 
+T add_one(T value) {
+    return value + 1;
+}
+```
