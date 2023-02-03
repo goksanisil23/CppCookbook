@@ -53,7 +53,7 @@ func(std::move(ref)); // calls 2nd
 ```c++
 void func(std::vector<int>&& vec) // vec is r-value ref
 { //but here vec is l-value since it designates the name of object
-  // && in func argument only implies its ok to dispose of object
+  // '&&' in func argument only implies its ok to dispose of object
   std::vector newVec = std::move(vec);
   // explicity use move, o/w it gets copied.
 }
@@ -345,3 +345,55 @@ auto minus(Ts const& ... vals)
 }
 ```
 The example above will give different results for `minus(1,2,3)`, depending on left or right associtivity.
+
+### typename & value_type
+Apart from defining templated funcs/classes, typename keyword is used to access nested and dependent types related to the templated class.
+ ```c++
+class MyClass
+{
+public:
+    struct MyStruct{
+        int sval{3};
+    }
+    MyStruct val;
+};
+
+template <typename T> 
+void func(const T& obj)
+{
+    T::MyStruct value1 = obj.val; // ERROR: Compiler might think T::MyStruct is a static member.
+    typename T::MyStruct value2 = obj.val; // OK
+}
+```
+
+### enable_if & SFINAE
+- *SFINAE* stands for 'Substitution Failure Is Not An Error'. It means if the compiler fails to substitute a certain type during specialization, it will not cause a compile error **if another successful substitution is found.**
+```c++
+int negate(int i) {
+  return -i;
+}
+
+template <typename T>
+typename T::value_type negate(const T& t) {
+  return -T(t);
+}
+// ...
+auto neg = negate(42);
+```
+For the templated `negate`, compiler considers the substitution `int::value_type negate(const int& t);`, and sees that its invalid since `int` has no `value_type`. However since 1st version of `negate` fits into `negate(42)` usage, we get no error.
+
+- `enable_if` is mainly used to restrict templates to types that have certain properties. Without enable_if, catch-all property of templates might lead to undesired behavior:
+```c++
+template <typename T>
+class vector {
+public:
+    vector(size_t n, const T val);
+
+    template <class InputIterator>
+    vector(InputIterator first, InputIterator last);
+};
+// ...
+vector<int> vec(4,8);
+// calls 2nd version since 1st constructor would need a cast from int(4) to size_t
+// whereas 2nd one fits perfectly with no type conversion.
+```
