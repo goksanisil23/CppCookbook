@@ -51,13 +51,14 @@ func(std::move(ref)); // calls 2nd
 > A named r-value is an l-value, since all named objects are l-values. Only temporary/anonymous objects are r-values.
 
 ```c++
-void func(std::vector<int>&& vec) // vec is r-value ref
-{ //but here vec is l-value since it designates the name of object
+void func(std::vector<int>&& vec) // --> vec is r-value ref
+{ // --> but here vec is l-value since it designates the name of object
   // '&&' in func argument only implies its ok to dispose of object
-  std::vector newVec = std::move(vec);
-  // explicity use move, o/w it gets copied.
+  std::vector newVec = vec; // calls copy constructor
+  std::vector newVec = std::move(vec); // calls move constructor
 }
 ```
+As seen above, even if the argument to the function is an r-value ref, explicity use `std::move` to transfer resources, **othwerwise it gets copied**.
 
 > **Note**
 > Do not return r-value ref. from a function using std::move. When returning a local function variable, compilers after C++11 will use RVO to automatically move them. So use
@@ -69,6 +70,145 @@ std::vector<int> GenVec(){
 // RVO
 ```
 
+### Rule of 5
+- Rule of 5: If *any* of class special member functions are explicitly defined, either explicitly define or default all of them.
+
+```c++
+class Example
+{
+public:
+    Example(): dataPtr_{nullptr}, var_(0) {}
+
+    Example(const Example& other) // Copy Constructor
+    {
+        dataPtr_ = new int(*(other.dataPtr_)); // Deep copy
+        var_ = other.var_;
+    }
+
+    Example& operator= (const Example& other) // Copy Assign. Op.
+    {
+        if(this != &other)
+        {
+            delete dataPtr_;
+            dataPtr_ = new int(*(other.dataPtr_)); // Deep Copy
+            var_ = other.var_;
+        }
+        return *this;
+    }
+
+    Example(Example&& other) noexcept // Move Constructor
+    {
+        dataPtr_ = other.dataPtr_; // transfer ownership
+        var_ = other.var_;
+        other.dataPtr_ = nullptr; // release the other
+        other.var_ = 0.0;
+    }
+
+    Example& operator= (Example&& other) // Move Assign. Op.
+    {
+        if(this != &other)
+        {
+            delete dataPtr_;
+            dataPtr_ = other.dataPtr_; 
+            var_ = other.var_;
+            other.dataPtr_ = nullptr; // release the other
+            other.var_ = 0.0;
+        }
+        return *this;
+    }
+
+    ~Example()
+    {
+        delete dataPtr_;
+    }
+
+private:
+    int* dataPtr_;
+    double var_;
+}; 
+```
+
+If we are providing both move assignment and move constructor for the class, we can avoid redundant code by having move constructor call move assignment:
+```c++
+    Example(Example&& other) noexcept // Move Constructor
+    {
+        *this = std::move(other);
+    }
+```
+Here `std::move` converts lvalue `other` to an rvalue.
+
+Below usage shows whats called when:
+```c++
+Example ex1;
+Example ex2 = ex1; // copy constructor
+Example ex3 = std::move(ex1); // move constructor
+Example ex4;
+anotherWrapper = ex3; // copy assignment
+anotherWrapper = std::move(ex3); // move assignment
+```
+### push_back vs. emplace_back
+`emplace_back` is often considered more *efficient* than `push_back`, but it should not be blindly chosen (takes longer to compile) and it should be used correctly:
+```c++
+// Assume we have integer wrapper class
+// With a constructor IntWrapper(int value);
+IntWrapper(int value);
+std::vector<IntWrapper> wrappers;
+
+auto wrapper = IntWrapper(22); // Arg construct
+
+wrappers.push_back(wrapper); // Copy constructs
+wrappers.emplace_back(wrapper); // Copy constructs
+wrappers.push_back(std::move(wrapper)); // Move constructs
+wrappers.emplace_back(std::move(wrapper)); // Move constructs
+```
+As seen above, no difference here between `push_back` and `emplace_back`. Where emplace_back makes a difference is the below usage, where we pass the constructor arguments directly.
+```c++
+wrappers.push_back(IntWrapper(2)); // Arg construct + move constructs
+wrappers.emplace_back(IntWrapper(2)); // Arg construct + move constructs
+wrappers.emplace_back(2); // Only Arg construct, no move or copy construct.
+```
+
+### universal references & forwarding
+- ***universal reference*** (aka *forwarding reference*) can stand for both l-value and r-value references. They can ***only*** be defined with deduced type `T` as `T&&`. So when we see `&&` in the code, it is either an r-value ref or a universal ref.
+
+Universal references allows us to write functions that can take both r-value and l-value references:
+```c++
+template <typename T>
+void func(T&& x);
+//
+func(43); // taking r-value
+int var(42);
+func(var); // taking l-value
+```
+- `std::forward` is used in implementing move semantics. It takes forwarding reference as an input. According to template parameter `T`, identifies whether r-value or l-value reference is passed to it and returns that kind of reference. It can be used to ensure that: 
+    1. Argument provided to a function-A, is *forwarded* to another function-B.
+    ```c++
+void foo(int& x);
+void foo(int&& x);
+
+template <typename T> 
+void wrapperFunc(T&& arg){
+    foo(std::forward<T>(arg)); 
+}
+
+int n(42);
+wrapperFunc(n); // calls 1st foo
+wrapperFunc(std::move(n)); // calls 2nd foo.
+    ```
+    2. Argument provided to a function-A, is used within the function-A with the same value category (l-value or r-value).
+     ```c++
+template<typename T>
+void valAssign(T&& valIn)
+{
+    IntWrapper val = valIn; // calls copy constructor
+    IntWrapper val = std::move(valIn); // calls move constructor
+    IntWrapper val = std::forward<T>(valIn); // also calls move constructor
+}
+// ..
+IntWrapper val(2);
+valAssign(std::move(val));
+    ```
+In the example above, resources of `valIn` can be directly transferred to `val` without using the `std::move` inside, with the help of `std::forward`, since it's already passed as an r-value ref to the function.
 
 ### `auto` Usage
 
@@ -217,73 +357,6 @@ top::mid::bot::myfunc(); // finer grained
 using top;
 myfunc(); // convenient
 ```
-
-### Rule of 5
-- Rule of 5: If *any* of class special member functions are explicitly defined, either explicitly define or default all of them.
-
-```c++
-class Example
-{
-public:
-    Example(): dataPtr_{nullptr}, var_(0) {}
-
-    Example(const Example& other) // Copy Constructor
-    {
-        dataPtr_ = new int(*(other.dataPtr_)); // Deep copy
-        var_ = other.var_;
-    }
-
-    Example& operator= (const Example& other) // Copy Assign. Op.
-    {
-        if(this != &other)
-        {
-            delete dataPtr_;
-            dataPtr_ = new int(*(other.dataPtr_)); // Deep Copy
-            var_ = other.var_;
-        }
-        return *this;
-    }
-
-    Example(Example&& other) noexcept // Move Constructor
-    {
-        dataPtr_ = other.dataPtr_; // transfer ownership
-        var_ = other.var_;
-        other.dataPtr_ = nullptr; // release the other
-        other.var_ = 0.0;
-    }
-
-    Example& operator= (Example&& other) // Move Assign. Op.
-    {
-        if(this != &other)
-        {
-            delete dataPtr_;
-            dataPtr_ = other.dataPtr_; 
-            var_ = other.var_;
-            other.dataPtr_ = nullptr; // release the other
-            other.var_ = 0.0;
-        }
-        return *this;
-    }
-
-    ~Example()
-    {
-        delete dataPtr_;
-    }
-
-private:
-    int* dataPtr_;
-    double var_;
-}; 
-```
-
-If we are providing both move assignment and move constructor for the class, we can avoid redundant code by having move constructor call move assignment:
-```c++
-    Example(Example&& other) noexcept // Move Constructor
-    {
-        *this = std::move(other);
-    }
-```
-Here `std::move` converts lvalue `other` to an rvalue.
 
 ### Variadic Function Templates
 Allows to define non-fixed number of input arguments to functions. The compiler recursively generates deterministic versions in compile time.
