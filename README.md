@@ -130,10 +130,10 @@ private:
 
 If we are providing both move assignment and move constructor for the class, we can avoid redundant code by having move constructor call move assignment:
 ```c++
-    Example(Example&& other) noexcept // Move Constructor
-    {
-        *this = std::move(other);
-    }
+Example(Example&& other) noexcept // Move Constructor
+{
+    *this = std::move(other);
+}
 ```
 Here `std::move` converts lvalue `other` to an rvalue.
 
@@ -182,7 +182,7 @@ func(var); // taking l-value
 ```
 - `std::forward` is used in implementing move semantics. It takes forwarding reference as an input. According to template parameter `T`, identifies whether r-value or l-value reference is passed to it and returns that kind of reference. It can be used to ensure that: 
     1. Argument provided to a function-A, is *forwarded* to another function-B.
-    ```c++
+```c++
 void foo(int& x);
 void foo(int&& x);
 
@@ -194,9 +194,9 @@ void wrapperFunc(T&& arg){
 int n(42);
 wrapperFunc(n); // calls 1st foo
 wrapperFunc(std::move(n)); // calls 2nd foo.
-    ```
+```
     2. Argument provided to a function-A, is used within the function-A with the same value category (l-value or r-value).
-     ```c++
+ ```c++
 template<typename T>
 void valAssign(T&& valIn)
 {
@@ -207,7 +207,7 @@ void valAssign(T&& valIn)
 // ..
 IntWrapper val(2);
 valAssign(std::move(val));
-    ```
+```
 In the example above, resources of `valIn` can be directly transferred to `val` without using the `std::move` inside, with the help of `std::forward`, since it's already passed as an r-value ref to the function.
 
 ### `auto` Usage
