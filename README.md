@@ -181,7 +181,7 @@ int var(42);
 func(var); // taking l-value
 ```
 - `std::forward` is used in implementing move semantics. It takes forwarding reference as an input. According to template parameter `T`, identifies whether r-value or l-value reference is passed to it and returns that kind of reference. It can be used to ensure that: 
-    1. Argument provided to a function-A, is *forwarded* to another function-B.
+1. Argument provided to a function-A, is *forwarded* to another function-B.
 ```c++
 void foo(int& x);
 void foo(int&& x);
@@ -195,7 +195,8 @@ int n(42);
 wrapperFunc(n); // calls 1st foo
 wrapperFunc(std::move(n)); // calls 2nd foo.
 ```
-    2. Argument provided to a function-A, is used within the function-A with the same value category (l-value or r-value).
+2. Argument provided to a function-A, is used within the function-A with the same value category (l-value or r-value).
+
  ```c++
 template<typename T>
 void valAssign(T&& valIn)
