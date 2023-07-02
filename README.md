@@ -405,7 +405,7 @@ auto add(T, Ts...) [T = float, Ts = <int, long>]
 auto add(T, Ts...) [T = int, Ts = <long>]
 7.2
 ```
-## Forwarding with variadic templates
+#### Forwarding with variadic templates
 Below example shows a way to construct a vector from variadic arguments:
 ```c++
 struct Person {
