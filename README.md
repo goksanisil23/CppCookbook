@@ -405,6 +405,22 @@ auto add(T, Ts...) [T = float, Ts = <int, long>]
 auto add(T, Ts...) [T = int, Ts = <long>]
 7.2
 ```
+## Forwarding with variadic templates
+Below example shows a way to construct a vector from variadic arguments:
+```c++
+struct Person {
+   std::string name;
+};
+
+template <typename ... Ts>
+std::vector<std::string> function(Ts&& ... ts)
+{
+    return {std::forward<Ts>(ts).name...};
+}
+
+Person p1,p2,p3,p4;
+std::vector<std::string> names = function(p1, p2, p3, p4);
+```
 
 ### Fold expressions
 Fold expressions are related to variadic arguments of templates. It enables compiler to apply the same binary operation `(+,-,>,*,/=,...)` to all arguments of parameter pack. The expression must to be surrounded by parenthesis `(...)`
